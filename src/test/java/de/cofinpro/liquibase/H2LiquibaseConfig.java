@@ -1,7 +1,6 @@
 package de.cofinpro.liquibase;
 
 import org.h2.jdbcx.JdbcConnectionPool;
-import org.h2.jdbcx.JdbcDataSource;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
