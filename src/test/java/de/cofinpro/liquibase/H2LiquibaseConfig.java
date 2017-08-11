@@ -11,7 +11,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Collection;
-
 /**
  * @author Gregor Tudan, Cofinpro AG
  */
@@ -52,7 +51,7 @@ public class H2LiquibaseConfig extends CDILiquibaseConfig {
     }
 
     @Override
-    public Collection<String> getTenants() {
+    public Collection<String> getSchemas() {
          return Arrays.asList("tenant1", "tenant2");
     }
 }

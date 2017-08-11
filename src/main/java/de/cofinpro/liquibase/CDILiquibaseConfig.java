@@ -7,7 +7,6 @@ import javax.sql.DataSource;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
-import java.util.concurrent.Executor;
 
 /**
  * @author Gregor Tudan, Cofinpro AG
@@ -26,8 +25,12 @@ public abstract class CDILiquibaseConfig {
         return null;
     }
 
-    public Collection<String> getTenants() {
+    public Collection<String> getSchemas() {
         return Collections.emptyList();
+    }
+
+    public Map<String, String[]> getSchemaCredentials() {
+        return Collections.emptyMap();
     }
 
     public Map<String, String> getParameters() {
@@ -42,3 +45,5 @@ public abstract class CDILiquibaseConfig {
         return Collections.emptyList();
     }
 }
+
+

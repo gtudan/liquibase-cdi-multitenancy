@@ -61,10 +61,10 @@ public class CDILiquibaseMultiTenant {
             throw new DatabaseException(e);
         }
 
-        if (config.getTenants().isEmpty()) {
+        if (config.getSchemas().isEmpty()) {
             performUpdate(liquibase, config.getDefaultSchema());
         } else {
-            for (String tenant : config.getTenants()) {
+            for (String tenant : config.getSchemas()) {
                 performUpdate(liquibase, tenant);
             }
         }
@@ -73,22 +73,25 @@ public class CDILiquibaseMultiTenant {
     private void performUpdate(Liquibase liquibase, String schema) throws LiquibaseException {
         Connection conn = null;
         try {
-            conn = config.getDataSource().getConnection();
+            final String[] credentials = config.getSchemaCredentials().get(schema);
+            if (credentials != null && credentials.length == 2) {
+                conn = config.getDataSource().getConnection(credentials[0], credentials[1]);
+            } else {
+                conn = config.getDataSource().getConnection();
+            }
             liquibase.getDatabase().setConnection(new JdbcConnection(conn));
             liquibase.getDatabase().setDefaultSchemaName(schema);
             liquibase.update(new Contexts(config.getContexts()), new LabelExpression(config.getLabels()));
         } catch (SQLException e) {
             throw new DatabaseException(e);
         } finally {
-            if (liquibase != null && liquibase.getDatabase() != null) {
-                liquibase.getDatabase().close();
-            } else if (conn != null) {
-                try {
+            try {
+                if (conn != null && !conn.isClosed()) {
                     conn.rollback();
                     conn.close();
-                } catch (SQLException e) {
-                    //nothing to do
                 }
+            } catch (SQLException e) {
+                //nothing to do
             }
         }
     }
