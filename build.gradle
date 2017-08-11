@@ -1,0 +1,20 @@
+apply plugin: 'java'
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+dependencies {
+    compile 'javax.enterprise:cdi-api:2.0'
+    compile 'org.liquibase:liquibase-core:3.5.3'
+
+    runtime 'org.yaml:snakeyaml:1.18'
+    runtime 'com.mattbertolini:liquibase-slf4j:2.0.0'
+
+    testCompile 'junit:junit:4.12'
+    testCompile 'com.h2database:h2:1.4.196'
+
+    testRuntime 'org.jboss.weld.se:weld-se-core:3.0.0.Final'
+    testRuntime 'ch.qos.logback:logback-classic:1.2.3'
+}
