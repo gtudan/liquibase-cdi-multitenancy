@@ -86,8 +86,12 @@ public class CDILiquibaseMultiTenant {
     private void performUpdate(Liquibase liquibase, String schema) throws LiquibaseException {
         Connection conn = null;
         try {
-            if (config.getSchemaCredentials().)
-            conn = config.getDataSource().getConnection();
+            final String[] credentials = config.getSchemaCredentials().get(schema);
+            if (credentials != null && credentials.length == 2) {
+                conn = config.getDataSource().getConnection(credentials[0], credentials[1]);
+            } else {
+                conn = config.getDataSource().getConnection();
+            }
             liquibase.getDatabase().setConnection(new JdbcConnection(conn));
             liquibase.getDatabase().setDefaultSchemaName(schema);
             liquibase.update(new Contexts(config.getContexts()), new LabelExpression(config.getLabels()));
