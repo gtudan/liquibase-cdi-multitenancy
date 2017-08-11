@@ -11,12 +11,14 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Collection;
+
 /**
  * @author Gregor Tudan, Cofinpro AG
  */
 @ApplicationScoped
 public class H2LiquibaseConfig extends CDILiquibaseConfig {
 
+    private static final String[] TENANTS = {"tenant1", "tenant2", "tenant3", "tenant4", "tenant5"};
     private JdbcConnectionPool dataSource;
 
     @PostConstruct
@@ -26,8 +28,9 @@ public class H2LiquibaseConfig extends CDILiquibaseConfig {
 
         try (Connection conn = cp.getConnection();
              Statement statement = conn.createStatement()) {
-            statement.execute("CREATE SCHEMA tenant1");
-            statement.execute("CREATE SCHEMA tenant2");
+            for (String tenant : TENANTS) {
+                statement.execute("CREATE SCHEMA IF NOT EXISTS " + tenant);
+            }
         } catch (SQLException e) {
             throw new RuntimeException("Failed to create schemas", e);
         }
@@ -52,6 +55,6 @@ public class H2LiquibaseConfig extends CDILiquibaseConfig {
 
     @Override
     public Collection<String> getSchemas() {
-         return Arrays.asList("tenant1", "tenant2");
+        return Arrays.asList(TENANTS);
     }
 }
