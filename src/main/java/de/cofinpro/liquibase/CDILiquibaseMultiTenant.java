@@ -16,7 +16,6 @@ import liquibase.logging.Logger;
 import liquibase.util.LiquibaseUtil;
 import liquibase.util.NetUtil;
 
-import javax.annotation.PostConstruct;
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.context.Initialized;
 import javax.enterprise.event.Observes;
@@ -29,36 +28,47 @@ import java.sql.SQLException;
 import java.util.Map;
 
 /**
+ * CDI integration for liquibase with support for schema-based multi-tenancy.
+ * <p>
+ * This class runs liquibase after context initialization has finished. Minimum CDI version required is CDI 1.1.
+ * <p>
+ * This expects an implementation of {@link CDILiquibaseConfig} in the classpath, or CDI initialization will fail.
  * @author Gregor Tudan, Cofinpro AG
  */
 public class CDILiquibaseMultiTenant {
 
     private final Logger log = LogFactory.getInstance().getLog();
-    private Liquibase liquibase;
-    private boolean shouldRun;
+    private final CDILiquibaseConfig config;
+    private final Liquibase liquibase;
+    private final boolean shouldRun;
 
     @Inject
-    private CDILiquibaseConfig config;
-
-    @PostConstruct
-    public void onStartup() {
+    public CDILiquibaseMultiTenant(CDILiquibaseConfig config) {
+        this.config = config;
         log.info("Booting Liquibase " + LiquibaseUtil.getBuildVersion());
-        checkIfLiquibaseShouldRun();
+        this.shouldRun = checkIfLiquibaseShouldRun();
         if (this.shouldRun) {
             try {
-                createLiquibase(config.getDataSource());
+                liquibase = createLiquibase(config.getDataSource());
             } catch (LiquibaseException | SQLException e) {
                 throw new UnexpectedLiquibaseException(e);
             }
+        } else {
+            // liquibase is final - we need to initialize it
+            liquibase = null;
         }
     }
 
-    public void performUpdate(@Observes @Initialized(ApplicationScoped.class) Object ignored) throws LiquibaseException {
+    protected void performUpdate(@Observes @Initialized(ApplicationScoped.class) Object ignored) throws LiquibaseException {
+       performUpdate();
+    }
+
+    void performUpdate() throws LiquibaseException {
         if (!shouldRun) {
             return;
         }
 
-        if (config.getSchemas().isEmpty()) {
+        if (config.getSchemas() == null || config.getSchemas().isEmpty()) {
             performUpdate(liquibase, config.getDefaultSchema());
         } else {
             for (String schema : config.getSchemas()) {
@@ -67,7 +77,7 @@ public class CDILiquibaseMultiTenant {
         }
     }
 
-    private void checkIfLiquibaseShouldRun() {
+    private boolean checkIfLiquibaseShouldRun() {
         String hostName = "unknown";
         try {
             hostName = NetUtil.getLocalHostName();
@@ -76,24 +86,23 @@ public class CDILiquibaseMultiTenant {
         }
 
         LiquibaseConfiguration liquibaseConfiguration = LiquibaseConfiguration.getInstance();
-        this.shouldRun = liquibaseConfiguration.getConfiguration(GlobalConfiguration.class).getShouldRun();
+        boolean shouldRun = liquibaseConfiguration.getConfiguration(GlobalConfiguration.class).getShouldRun();
         if (!this.shouldRun) {
             log.info("Liquibase did not run on " + hostName + " because " + liquibaseConfiguration.describeValueLookupLogic(GlobalConfiguration.class, GlobalConfiguration.SHOULD_RUN) + " was set to false");
         }
+        return shouldRun;
     }
 
 
     private void performUpdate(Liquibase liquibase, String schema) throws LiquibaseException {
         Connection conn = null;
         try {
-            final String[] credentials = config.getSchemaCredentials().get(schema);
-            if (credentials != null && credentials.length == 2) {
-                conn = config.getDataSource().getConnection(credentials[0], credentials[1]);
-            } else {
-                conn = config.getDataSource().getConnection();
-            }
+            conn = getConnectionForSchema(schema);
             liquibase.getDatabase().setConnection(new JdbcConnection(conn));
             liquibase.getDatabase().setDefaultSchemaName(schema);
+            if (config.isDropFirst()) {
+                liquibase.dropAll();
+            }
             liquibase.update(new Contexts(config.getContexts()), new LabelExpression(config.getLabels()));
         } catch (SQLException e) {
             throw new DatabaseException(e);
@@ -111,9 +120,20 @@ public class CDILiquibaseMultiTenant {
         }
     }
 
-    private void createLiquibase(DataSource c) throws LiquibaseException, SQLException {
+    private Connection getConnectionForSchema(String schema) throws SQLException {
+        if (config.getSchemaCredentials() != null) {
+            String[] credentials = config.getSchemaCredentials().get(schema);
+            if (credentials != null && credentials.length == 2) {
+                return config.getDataSource().getConnection(credentials[0], credentials[1]);
+            }
+        }
+        return config.getDataSource().getConnection();
+    }
+
+    private Liquibase createLiquibase(DataSource c) throws LiquibaseException, SQLException {
+        final Liquibase liquibase;
         try (Connection conn = c.getConnection()) {
-            this.liquibase = new Liquibase(config.getChangeLog(), config.getResourceAccessor(), createDatabase(conn));
+            liquibase = new Liquibase(config.getChangeLog(), config.getResourceAccessor(), createDatabase(conn));
         }
 
         if (config.getParameters() != null) {
@@ -121,6 +141,7 @@ public class CDILiquibaseMultiTenant {
                 this.liquibase.setChangeLogParameter(entry.getKey(), entry.getValue());
             }
         }
+        return liquibase;
     }
 
 

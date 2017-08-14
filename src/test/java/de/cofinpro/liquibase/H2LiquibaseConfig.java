@@ -2,7 +2,6 @@ package de.cofinpro.liquibase;
 
 import org.h2.jdbcx.JdbcConnectionPool;
 
-import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.enterprise.context.ApplicationScoped;
 import javax.sql.DataSource;
@@ -15,16 +14,14 @@ import java.util.Collection;
 /**
  * @author Gregor Tudan, Cofinpro AG
  */
-@ApplicationScoped
-public class H2LiquibaseConfig extends CDILiquibaseConfig {
+public class H2LiquibaseConfig extends CDILiquibaseConfig implements AutoCloseable {
 
     private static final String[] TENANTS = {"tenant1", "tenant2", "tenant3", "tenant4", "tenant5"};
     private JdbcConnectionPool dataSource;
 
-    @PostConstruct
-    public void prepareDatasource() {
+    public H2LiquibaseConfig() {
         JdbcConnectionPool cp = JdbcConnectionPool.create(
-                "jdbc:h2:mem:test", "sa", "sa");
+                "jdbc:h2:mem:test;DB_CLOSE_DELAY=-1", "sa", "sa");
 
         try (Connection conn = cp.getConnection();
              Statement statement = conn.createStatement()) {
@@ -39,7 +36,8 @@ public class H2LiquibaseConfig extends CDILiquibaseConfig {
     }
 
     @PreDestroy
-    public void destroyDatasource() {
+    @Override
+    public void close() {
         dataSource.dispose();
     }
 
@@ -56,5 +54,10 @@ public class H2LiquibaseConfig extends CDILiquibaseConfig {
     @Override
     public Collection<String> getSchemas() {
         return Arrays.asList(TENANTS);
+    }
+
+    @Override
+    public boolean isDropFirst() {
+        return true;
     }
 }
