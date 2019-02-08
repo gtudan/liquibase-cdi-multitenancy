@@ -11,6 +11,7 @@ dependencies {
 
     testCompile 'junit:junit:4.12'
     testCompile 'com.h2database:h2:1.4.196'
+    testCompile 'org.mockito:mockito-core:2.3.11'
 
     testRuntime 'org.jboss.weld.se:weld-se-core:3.0.0.Final'
     testRuntime 'com.mattbertolini:liquibase-slf4j:2.0.0'
